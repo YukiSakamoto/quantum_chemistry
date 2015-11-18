@@ -17,11 +17,20 @@ atomic_orbitals = [
 ]
 
 def norm(start, end):
-    dX = end[0] - start[0]
-    dY = end[1] - start[1]
-    dZ = end[2] - start[2]
-    return math.sqrt( dX ** 2 + dY ** 2 + dZ ** 2 )
+    #dX = end[0] - start[0]
+    #dY = end[1] - start[1]
+    #dZ = end[2] - start[2]
+    #return math.sqrt( dX ** 2 + dY ** 2 + dZ ** 2 )
+    displacement = np.array([
+        end[0] - start[0],
+        end[1] - start[1],
+        end[2] - start[2],
+    ])
+    return np.linalg.norm(displacement)
 
+#============================================================
+#   Atomic Orbitals Related
+#============================================================
 class SlaterTypeFunction:
     def __init__(self, center, exponent, coeff = 1):
         self.center = center
@@ -30,6 +39,10 @@ class SlaterTypeFunction:
     def value(self, pos):
         r = norm(pos, self.center)
         return self.coeff * math.exp(self.exponent * r)
+class GaussinTypeFunction:
+    def __init__(self, center, exponent, coeff = 1):
+        pass
+    
 
 def gaussian_function_product(orbit_exponent1, centre1, orbit_exponent2, centre2):
     # Just store short named variables.
@@ -43,6 +56,9 @@ def gaussian_function_product(orbit_exponent1, centre1, orbit_exponent2, centre2
     k = ((2 / math.pi) ** 2) * ((a * b)**(3/4)) * math.exp( (-a * b/(a + b)) * ((Ra - Rb) ** 2) )
     return (r, Rc, k)
 
+#============================================================
+#   Calculate Integrals
+#============================================================
 def overlap_integral():
     # S_ij = <phi_i | phi_j>
     return None
@@ -58,6 +74,9 @@ def single_integral():
 def initial_guess(dimention):
     return np.zeros((dimention, dimention))
 
+#============================================================
+#   SCF Procedure
+#============================================================
 def rmsdp(D,oldD):
     delta = 0.0
     length = 5
@@ -71,8 +90,9 @@ def scf():
     threshold = 0.00001
     dimention = 5
     D = initial_guess(dimention)
+
     S = overlap_integral()
-    # F = H + G
+    # F = Hcore + G
     
     while True:
         oldD = D
