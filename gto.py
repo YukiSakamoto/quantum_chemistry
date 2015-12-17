@@ -2,11 +2,21 @@ import numpy as np
 import math
 
 # Should move to elsewhere that contain math utils.
+
+def fact(n):
+    if n <= 1:
+        return 1
+    else:
+        return n * fact(n - 1)
+
 def fact2(n):
     if n <= 1:
         return 1
     else:
         return n * fact(n - 2)
+
+def binomial(n, m):
+    return fact(n) / (fact(m) * fact(n - m))
 
 class PrimitiveGTO:
     def __init__(self, exponent, l, m, n, center):
@@ -41,6 +51,7 @@ class PrimitiveGTO:
         v1 = alpha * beta / (alpha + beta) * (3 - 2 * alpha * beta / (alpha + beta) * math.pow(norm, 2.0) )
         v2 = math.pow( math.pi / (alpha + beta), 1.5)
         v3 = math.exp( -alpha * beta / (alpha + beta) * pow(norm, 2.0) )
+        # Now, only S-S orbitals .
         return v1 * v2 * v3 * self.norm * other.norm
         
     def as_string(self):
@@ -110,6 +121,17 @@ def compute_T(bfs):
             T[i,j] = bfs[i].kinetic(bfs[j])
     return T
 
+def compute_coulomb(bfs):
+    dim = len(bfs)
+    J = np.zeros( (dim, dim, dim, dim) )
+    for i in xrange(dim):
+        for j in xrange(dim):
+            for k in xrange(dim):
+                for l in xrange(dim):
+                    pass
+    return J
+
+
 h1 = ContractedGTO(0, 0, 0, 0., 0., 0.)
 h1.add_pgto(0.444635, 0.168856)
 h1.add_pgto(0.535328, 0.623913)
@@ -129,3 +151,6 @@ S = compute_overlap(bfs)
 T = compute_T(bfs)
 print S
 print T
+
+
+print math.erf(2.56)
