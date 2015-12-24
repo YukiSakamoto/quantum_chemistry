@@ -16,7 +16,22 @@ def fact2(n):
         return n * fact(n - 2)
 
 def binomial(n, m):
-    return fact(n) / (fact(m) * fact(n - m))
+    return fact(n) / fact(m) / fact(n - m)
+
+def gaussian_integral(n, alpha):
+    # x^2n * exp(-alpha * x^2)
+    return fact2(2*n - 1)/ math.pow(2, n) * math.pow( math.pi/math.pow(alpha, 2*n+1), 0.5)
+
+def binomial_prefactor(exponent, l1, l2, pa, pb):
+    '''
+    (x + pa)^l1 * (x + pb)^l2
+    '''
+    s = 0.
+    for i in xrange(1 + exponent):
+        j = exponent - i
+        if i <= l1 and j <= l2:
+            s += binomial(l1, i) * math.pow(pa, l1 - i) * binomial(l2, j) * math.pow(pb, l2 - j)
+    return s
 
 class PrimitiveGTO:
     def __init__(self, exponent, l, m, n, center):
@@ -35,13 +50,37 @@ class PrimitiveGTO:
         denominator = fact2(2*l-1) * fact2(2*m-1) * fact2(2*n-1) * math.pow(math.pi, 1.5)
         self.norm = math.sqrt(numerator / denominator)
 
+    def product_center(self, other):
+        alpha = self.exponent
+        beta  = other.exponent
+        return (alpha * self.center + beta * other.center) / (alpha + alpha)
+
     def overlap(self, other):
         alpha = self.exponent
-        beta = other.exponent
-        norm = np.linalg.norm(self.center - other.center)
-        v1 = math.pow( math.pi /(alpha + beta), 1.50)
-        v2 = math.exp( (-1) * alpha * beta / (alpha + beta) * math.pow(norm, 2.0))
-        return v1 * v2 * self.norm * other.norm
+        beta  = other.exponent
+        norm = np.linalg.norm( self.center - other.center )
+        Rp = self.product_center(other)
+        Ra = (Rp - self.center)
+        Rb = (Rp - other.center)
+
+        #k = math.pow( 2*alpha*beta /(alpha+beta)/math.pi, 0.75) * math.exp(-alpha*beta/(alpha+beta) * math.pow(norm, 2.0))
+        k = math.exp(-alpha*beta/(alpha+beta) * math.pow(norm, 2.0))
+        # K * (x + RA)^l * (x + RB)^m * exp (- (alpha + beta) * (r-Rp)^2)
+        s = 0.
+        for i in xrange(1 + int(math.floor( (self.l+other.l)/2 ))):
+            s += (binomial_prefactor(i*2, self.l, other.l, Ra[0], Rb[0] ) * gaussian_integral(i, alpha + beta)
+                    * binomial_prefactor(i * 2, self.m, other.m, Ra[1], Rb[1]) * gaussian_integral(i, alpha + beta)
+                    * binomial_prefactor(i * 2, self.m, other.m, Ra[2], Rb[2]) * gaussian_integral(i, alpha + beta) )
+        return k * s * self.norm * other.norm
+
+
+    #def overlap(self, other):
+    #    alpha = self.exponent
+    #    beta = other.exponent
+    #    norm = np.linalg.norm(self.center - other.center)
+    #    v1 = math.pow( math.pi /(alpha + beta), 1.50)
+    #    k = math.exp( (-1) * alpha * beta / (alpha + beta) * math.pow(norm, 2.0))
+    #    return v1 * k * self.norm * other.norm
 
     def kinetic(self, other):
         # See Szabo.
@@ -148,9 +187,11 @@ print h3.as_string()
 
 bfs = [h1, h3]
 S = compute_overlap(bfs)
-T = compute_T(bfs)
+#T = compute_T(bfs)
 print S
-print T
+#print T
 
 
-print math.erf(2.56)
+
+#print math.erf(2.56)
+#print binomial_prefactor(2, 1, 2, 2, 3)
