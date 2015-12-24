@@ -18,10 +18,6 @@ def fact2(n):
 def binomial(n, m):
     return fact(n) / fact(m) / fact(n - m)
 
-def gaussian_integral(n, alpha):
-    # x^2n * exp(-alpha * x^2)
-    return fact2(2*n - 1)/ math.pow(2, n) * math.pow( math.pi/math.pow(alpha, 2*n+1), 0.5)
-
 def binomial_prefactor(exponent, l1, l2, pa, pb):
     '''
     (x + pa)^l1 * (x + pb)^l2
@@ -33,22 +29,27 @@ def binomial_prefactor(exponent, l1, l2, pa, pb):
             s += binomial(l1, i) * math.pow(pa, l1 - i) * binomial(l2, j) * math.pow(pb, l2 - j)
     return s
 
-def pgto_product_center(exponent1, center1, exponent2, center2):
+def product_center(exponent1, center1, exponent2, center2):
     return (exponent1 * center1 + exponent2 * center2) / (exponent1 + exponent2)
 
-def pgto_overlap_1D(r1, exponent1, l1, r2, exponent2, l2):
+def overlap_1D(exponent1, r1, l1 , exponent2, r2, l2):
     s = 0.
+    gamma = exponent1 + exponent2
     for i in xrange(1 + int(math.floor( (l1 + l2)/2 ))):
-        s += binomial_prefactor(i*2, l1, l2, r1, r2)
+        s += binomial_prefactor(i*2, l1, l2, r1, r2) * fact2(2*i-1) / math.pow(2*gamma, i)
     return s
 
-def pgto_overlap_3D(
-        r1, exponent1, l1, m1, n1, 
-        r2, exponent2, l2, m2, n2):
-    overlap_x = pgto_overlap_1D(r1[0], exponent1, l1, r2[0], exponent2, l2)
-    overlap_y = pgto_overlap_1D(r1[1], exponent1, m1, r2[1], exponent2, m2)
-    overlap_z = pgto_overlap_1D(r1[2], exponent1, n1, r2[2], exponent2, n2)
-    return overlap_x * overlap_y * overlap_z
+def overlap(exponent1, center1, l1, m1, n1, exponent2, center2, l2, m2, n2):
+    (alpha, beta) = (exponent1, exponent2)
+    norm = np.linalg.norm(center1 - center2)
+    gamma = alpha + beta
+    Rp = product_center(exponent1, center1, exponent2, center2)
+    (Ra, Rb) = (Rp - center1, Rp - center2)
+    pre = math.pow(math.pi/gamma, 1.5) * math.exp(-alpha*beta*math.pow(norm,2.0)/gamma)
+    s_x = overlap_1D(alpha, Ra[0], l1, beta, Rb[0], l2)
+    s_y = overlap_1D(alpha, Ra[1], m1, beta, Rb[1], m2)
+    s_z = overlap_1D(alpha, Ra[2], n1, beta, Rb[2], n2)
+    return pre * s_x * s_y * s_z
 
 class PrimitiveGTO:
     def __init__(self, exponent, l, m, n, center):
@@ -70,41 +71,27 @@ class PrimitiveGTO:
     def overlap(self, other):
         # THO eq 2.12
         (alpha, beta) = (self.exponent, other.exponent)
-        norm = np.linalg.norm( self.center - other.center )
-
-        # Numbers related to Product of Primitive Gaussians
-        gamma = alpha + beta
-        Rp = pgto_product_center(alpha, self.center, beta, other.center)
-        (Ra, Rb) = (Rp - self.center, Rp - other.center)
-        pre = math.pow(math.pi/gamma, 1.5) * math.exp(-alpha*beta*math.pow(norm,2.0)/gamma)
-        return pre * pgto_overlap_3D(Ra, alpha, self.l, self.m, self.n, Rb, beta, other.l, other.m, other.n) * self.norm * other.norm
+        return overlap(
+                self.exponent, self.center, self.l, self.m, self.n,
+                other.exponent, other.center, other.l, other.m, other.n) * self.norm * other.norm
 
     def kinetic(self, other):
         # THO eq 2.14
         (alpha, beta) = (self.exponent, other.exponent)
-        Rp = pgto_product_center(alpha, self.center, beta, other.center)
-        (Ra, Rb) = (Rp - self.center, Rp - other.center)
+        (Ra, Rb) = (self.center, other.center)
         (l1, m1, n1) = (self.l, self.m, self.n)
         (l2, m2, n2) = (other.l, other.m, other.n)
         
-        term1 = beta * (2*(l2+m2+n2)+3) * pgto_overlap_3D(Ra, alpha, l1, m1, n1, Rb, beta, l2, m2, n2)
+        term1 = beta * (2*(l2+m2+n2)+3) * overlap(alpha, Ra, l1, m1, n1, beta, Rb, l2, m2, n2)
         term2 = -2 * math.pow(beta, 2) * (
-                pgto_overlap_3D(Ra, alpha, l1, m1, n1, Rb, beta, l2 + 2, m2, n2) +
-                pgto_overlap_3D(Ra, alpha, l1, m1, n1, Rb, beta, l2, m2 + 2, n2) + 
-                pgto_overlap_3D(Ra, alpha, l1, m1, n1, Rb, beta, l2, m2, n2 + 2) ) 
+                overlap(alpha, Ra, l1, m1, n1, beta, Rb, l2 + 2, m2, n2) +
+                overlap(alpha, Ra, l1, m1, n1, beta, Rb, l2, m2 + 2, n2) + 
+                overlap(alpha, Ra, l1, m1, n1, beta, Rb, l2, m2, n2 + 2) ) 
         term3 = -0.5 * (
-                l2*(l2-1) * pgto_overlap_3D(Ra, alpha, l1, m1, n1, Rb, beta, l2-2, m2, n2) + \
-                m2*(m2-1) * pgto_overlap_3D(Ra, alpha, l1, m1, n1, Rb, beta, l2, m2-2, n2) + \
-                n2*(n2-1) * pgto_overlap_3D(Ra, alpha, l1, m1, n1, Rb, beta, l2, m2, n2-2) )
-        print (term1, term2, term3)
-        return pre * (term1 + term2 + term3) * self.norm * other.norm
-
-        #norm = np.linalg.norm(self.center - other.center)
-        #v1 = alpha * beta / (alpha + beta) * (3 - 2 * alpha*beta / (alpha + beta) * math.pow(norm, 2.0) )
-        #v2 = math.pow( math.pi / (alpha + beta), 1.5)
-        #v3 = math.exp( -alpha * beta / (alpha + beta) * pow(norm, 2.0) )
-        # Now, only S-S orbitals .
-        #return v1 * v2 * v3 * self.norm * other.norm
+                l2*(l2-1) * overlap(alpha, Ra, l1, m1, n1, beta, Rb, l2-2, m2, n2) + \
+                m2*(m2-1) * overlap(alpha, Ra, l1, m1, n1, beta, Rb, l2, m2-2, n2) + \
+                n2*(n2-1) * overlap(alpha, Ra, l1, m1, n1, beta, Rb, l2, m2, n2-2) )
+        return (term1 + term2 + term3) * self.norm * other.norm
         
     def as_string(self):
         return "P_GTO(exp= -{0:>10}, norm= {1:>10})".format(self.exponent, self.norm)
