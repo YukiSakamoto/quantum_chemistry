@@ -109,32 +109,36 @@ def kinetic_PGTO(pgto1, pgto2):
             n2*(n2-1) * overlap_3D(exp1, Ra, l1, m1, n1, exp2, Rb, l2, m2, n2-2) )
     return (term1 + term2 + term3) * pgto1.norm * pgto2.norm
 
+'''
 def a_term(i, r, u, exponent1, l1, center_x1, exponent2, l2, center_x2, nuclearpos_x, gamma):
     rp = product_GTO_center(exponent1, center_x1, exponent2, center_x2)
-    px1 = rp - center_x1
-    px2 = rp - center_x2
-    cpx = nuclearpos_x - rp
+    px1 = abs(rp - center_x1)
+    px2 = abs(rp - center_x2)
+    cpx = abs(nuclearpos_x - rp)
     pre = math.pow(-1, i) * binomial_prefactor(i, l1, l2, px1, px2) 
     numerator = math.pow(-1,u) * factorial(i) * math.pow(cpx, i-2*r-2*u) * math.pow(0.25*gamma, r+u)
     denominator = factorial(r) * factorial(u) * (factorial(i - 2*r - 2*u) )
     return pre * numerator / denominator
+'''
 
-def a_term_reorder(exponent1, l1, center_x1, exponent2, l2, center_x2, nuclearpos_x, gamma):
-    a = np.zeros(1 + l1 + l2)
+def a_term(i, r, u, l1, l2, PA_x, PB_x, CP_x, gamma):
+    # i, r, u: index. see THO paper.
+    #  pa_x: product_center -> center1
+    #  pb_x: product_center -> center2
+    #  pc_x: product_center -> Nuclear
+    pre = math.pow(-1, i) * binomial_prefactor(i, l1, l2, PA_x, PB_x)
+    numerator = math.pow(-1, u) * factorial(i) * math.pow(CP_x, i - 2*r - 2*u) * math.pow(0.25*gamma, r+u)
+    denominator = factorial(r) * factorial(u) * factorial(i - 2*r - 2*u)
+    return pre * numerator / denominator
+
+def a_term_reorder(l1, l2, PA_x, PB_x, CP_x, gamma):
+    a = [0.]*(1+l1+l2)
     for i in xrange(1 + l1 + l2):
         for r in xrange(1 + int(math.floor(i / 2.0))):
             for u in xrange(1 + int(math.floor((i-2.0*r)/2.0))):
                 I = i - 2*r - u # XXX
-                a[I] += a_term(i, r, u, exponent1, l1, center_x1, exponent2, l2, center_x2, nuclearpos_x, gamma)
+                a[I] += a_term(i, r, u, l1, l2, PA_x, PB_x, CP_x, gamma)
     return a
-
-def sum_over_a_term(exponent1, l1, center_x1, exponent2, l2, center_x2, nuclearpos_x, gamma):
-    s = 0.
-    for i in xrange(1 + l1 + l2):
-        for r in xrange(1 + int(math.floor(i / 2.0))):
-            for u in xrange(1 + int(math.floor((i-2.0*r)/2.0))):
-                s += a_term(i, r, u, exponent1, l1, center_x1, exponent2, l2, center_x2, nuclearpos_x, gamma)
-    return s
 
 def nuclear_attraction_PGTO(pgto1, pgto2, nuclear):
     # < pgto1 | Z/Rzx | pgto2 >
@@ -147,14 +151,20 @@ def nuclear_attraction_PGTO(pgto1, pgto2, nuclear):
     product_center = product_PGTO_center(pgto1, pgto2)
     pc2 = norm2(nuclear.pos - product_center)
     pre = 2.0 * math.pi / gamma * math.exp(-exp1 * exp2 * dist2 / gamma)
-    a_x = a_term_reorder(exp1, l1, pgto1.center[0], exp2, l2, pgto2.center[0], nuclear.pos[0], gamma)
-    a_y = a_term_reorder(exp1, m1, pgto1.center[1], exp2, m2, pgto2.center[1], nuclear.pos[1], gamma)
-    a_z = a_term_reorder(exp1, n1, pgto1.center[2], exp2, n2, pgto2.center[2], nuclear.pos[2], gamma)
+
+    PA = product_center - pgto1.center
+    PB = product_center - pgto2.center
+    CP = product_center - nuclear.pos
+    a_x = a_term_reorder(l1, l2, PA[0], PB[0], CP[0], gamma)
+    a_y = a_term_reorder(m1, m2, PA[1], PB[1], CP[1], gamma)
+    a_z = a_term_reorder(n1, n2, PA[2], PB[2], CP[2], gamma)
     s = 0.
     for I in xrange(1+l1+l2):
         for J in xrange(1+m1+m2):
             for K in xrange(1+n1+n2):
                 s += a_x[I] * a_y[J] * a_z[K] * boys(I+J+K, gamma*pc2)
+    s = s * pre * pgto1.norm * pgto2.norm
+    #print "l1: {}, l2: {}, center1: {}, center2: {}, product_center: {}, nuclear: {} => {}".format(l1, l2, pgto1.center, pgto2.center, product_center, nuclear.pos, s)
     return s
 
 class primitiveGTO:
@@ -261,9 +271,13 @@ def compute_K(bfs, atoms):
     dim = len(bfs)
     H = np.zeros( (dim, dim) )
     for atom in atoms:
+        v = np.zeros( (dim, dim) )
+        #print atom.atomic_number
         for i in xrange(dim):
             for j in xrange(dim):
-                H[i,j] = nuclear_attraction_CGTO(bfs[i], bfs[j], atom)
+                v[i,j] = nuclear_attraction_CGTO(bfs[i], bfs[j], atom)
+        #print v
+        H += v
     return H
     
 h1 = contractedGTO(0, 0, 0, 0., 0., 0.)
@@ -282,11 +296,13 @@ bfs = [h1, h3]
 
 atoms = list()
 atoms.append(Atom(0., 0., 0., 1.0) )
-atoms.append(Atom(0., 0., 1.4, 1.0) )
+atoms.append(Atom(1.4, 0., 0.0, 1.0) )
 
 S = compute_overlap(bfs)
 T = compute_T(bfs)
-H1 = compute_K(bfs, atoms)
 print S
 print T
-print H1 
+print "compute K"
+H =  compute_K(bfs, atoms)
+
+print T + H
