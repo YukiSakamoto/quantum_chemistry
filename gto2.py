@@ -206,7 +206,7 @@ def electron_repulsion_PGTO(pgto1, pgto2, pgto3, pgto4):
     return prefactor1 * prefactor2 * s * pgto1.norm * pgto2.norm * pgto3.norm * pgto4.norm
 
 class primitiveGTO:
-    def __init__(self, exponent, l, m, n, center_x, center_y, center_z):
+    def __init__(self, exponent, (l, m, n), (center_x, center_y, center_z) ):
         self.exponent = exponent
         (self.l, self.m, self.n)  = (l, m, n)
         self.center = np.zeros(3)
@@ -265,7 +265,7 @@ def electron_repulsion_CGTO(cgto1, cgto2, cgto3, cgto4):
     return s * cgto1.norm * cgto2.norm * cgto3.norm * cgto4.norm
 
 class contractedGTO:
-    def __init__(self, l, m, n, center_x, center_y, center_z):
+    def __init__(self, (l, m, n), (center_x, center_y, center_z) ):
         self.center = np.zeros(3)
         self.center[0] = center_x
         self.center[1] = center_y
@@ -275,8 +275,8 @@ class contractedGTO:
         self.pgtos = list()
         
     def add_primitiveGTO(self, coeff, exponent):
-        pgto = primitiveGTO(exponent, self.l, self.m, self.n, 
-                self.center[0], self.center[1], self.center[2] )
+        pgto = primitiveGTO(exponent, (self.l, self.m, self.n) , 
+                (self.center[0], self.center[1], self.center[2]) )
         self.pgtos.append( (coeff, pgto) )
 
     def normalize(self):
@@ -291,7 +291,7 @@ class contractedGTO:
         return s * self.norm
 
 class Atom:
-    def __init__(self, pos_x, pos_y, pos_z, atomic_number):
+    def __init__(self, (pos_x, pos_y, pos_z), atomic_number):
         self.pos = np.zeros(3)
         self.pos[0] = pos_x
         self.pos[1] = pos_y
@@ -327,13 +327,13 @@ def compute_K(bfs, atoms):
         H += v
     return H
     
-h1 = contractedGTO(0, 0, 0, 0., 0., 0.)
+h1 = contractedGTO( (0, 0, 0), (0., 0., 0.) )
 h1.add_primitiveGTO(0.444635, 0.168856)
 h1.add_primitiveGTO(0.535328, 0.623913)
 h1.add_primitiveGTO(0.154329, 3.42525)
 h1.normalize()
 
-h3 = contractedGTO(0, 0, 0, 1.4, 0., 0.)
+h3 = contractedGTO( (0, 0, 0), (1.4, 0., 0.) )
 h3.add_primitiveGTO(0.444635, 0.168856)
 h3.add_primitiveGTO(0.535328, 0.623913)
 h3.add_primitiveGTO(0.154329, 3.42525)
@@ -342,8 +342,8 @@ h3.normalize()
 bfs = [h1, h3]
 
 atoms = list()
-atoms.append(Atom(0., 0., 0., 1.0) )
-atoms.append(Atom(1.4, 0., 0.0, 1.0) )
+atoms.append(Atom( (0., 0., 0.), 1.0) )
+atoms.append(Atom( (1.4, 0., 0.0), 1.0) )
 
 S = compute_overlap(bfs)
 T = compute_T(bfs)
