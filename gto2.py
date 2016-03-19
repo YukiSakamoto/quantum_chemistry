@@ -187,7 +187,7 @@ def b_term_reorder(l1, l2, Ax, Bx, Px, gamma1, l3, l4, Cx, Dx, Qx, gamma2):
 def electron_repulsion_PGTO(pgto1, pgto2, pgto3, pgto4):
     P = product_PGTO_center(pgto1, pgto2)
     Q = product_PGTO_center(pgto3, pgto4)
-    PQ2 = nom2(Q - P)
+    PQ2 = norm2(Q - P)
     AB2 = norm2(pgto1.center - pgto2.center)
     CD2 = norm2(pgto3.center - pgto4.center)
     gamma1 = pgto1.exponent + pgto2.exponent
@@ -199,9 +199,9 @@ def electron_repulsion_PGTO(pgto1, pgto2, pgto3, pgto4):
     prefactor1= 2 * math.pow(math.pi, 2) / gamma1 / gamma2 * math.sqrt(math.pi / (gamma1 + gamma2))
     prefactor2= math.exp(-(pgto1.exponent*pgto2.exponent*AB2/gamma1) - (pgto3.exponent* pgto4.exponent*CD2/gamma2))
     s = 0.
-    for I in (1 + pgto1.l + pgto2.l + pgto3.l + pgto4.l):
-        for J in (1 + pgto1.m + pgto2.m + pgto3.m + pgto4.m):
-            for K in (1 + pgto1.n + pgto2.n + pgto3.n + pgto4.n):
+    for I in xrange(1 + pgto1.l + pgto2.l + pgto3.l + pgto4.l):
+        for J in xrange(1 + pgto1.m + pgto2.m + pgto3.m + pgto4.m):
+            for K in xrange(1 + pgto1.n + pgto2.n + pgto3.n + pgto4.n):
                 s += b_array_x[I] * b_array_y[J] * b_array_z[K] * boys(I+J+K, PQ2/4/delta)
     return prefactor1 * prefactor2 * s * pgto1.norm * pgto2.norm * pgto3.norm * pgto4.norm
 
@@ -326,6 +326,24 @@ def compute_K(bfs, atoms):
         #print v
         H += v
     return H
+
+def build_4center_integral_table(bfs):
+    pass
+
+def compute_G(bfs, D):
+    dim = len(bfs)
+    G = np.zeros( (dim, dim) )
+    for u in xrange(dim):
+        for v in xrange(dim):
+            temp = 0.
+            for p in xrange(dim):
+                for q in xrange(dim):
+                    doubleJ = electron_repulsion_CGTO(bfs[u], bfs[v], bfs[p], bfs[1])
+                    K = 0.5*electron_repulsion_CGTO(bfs[u], bfs[q], bfs[q], bfs[v])
+                    temp += D[p,q] * (doubleJ - K)
+            G[u,v] = temp
+    return G
+    
     
 h1 = contractedGTO( (0, 0, 0), (0., 0., 0.) )
 h1.add_primitiveGTO(0.444635, 0.168856)
@@ -356,3 +374,5 @@ for i in xrange(dim):
 print Cinit
 print S
 print T + H
+
+print electron_repulsion_CGTO(h3, h1, h1, h1)
