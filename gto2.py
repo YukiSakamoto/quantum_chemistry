@@ -345,34 +345,37 @@ def compute_G(bfs, D):
     return G
     
     
-h1 = contractedGTO( (0, 0, 0), (0., 0., 0.) )
-h1.add_primitiveGTO(0.444635, 0.168856)
-h1.add_primitiveGTO(0.535328, 0.623913)
-h1.add_primitiveGTO(0.154329, 3.42525)
-h1.normalize()
+def test():
+    h1 = contractedGTO( (0, 0, 0), (0., 0., 0.) )
+    h1.add_primitiveGTO(0.444635, 0.168856)
+    h1.add_primitiveGTO(0.535328, 0.623913)
+    h1.add_primitiveGTO(0.154329, 3.42525)
+    h1.normalize()
 
-h3 = contractedGTO( (0, 0, 0), (1.4, 0., 0.) )
-h3.add_primitiveGTO(0.444635, 0.168856)
-h3.add_primitiveGTO(0.535328, 0.623913)
-h3.add_primitiveGTO(0.154329, 3.42525)
-h3.normalize()
+    h3 = contractedGTO( (0, 0, 0), (1.4, 0., 0.) )
+    h3.add_primitiveGTO(0.444635, 0.168856)
+    h3.add_primitiveGTO(0.535328, 0.623913)
+    h3.add_primitiveGTO(0.154329, 3.42525)
+    h3.normalize()
 
-bfs = [h1, h3]
+    bfs = [h1, h3]
 
-atoms = list()
-atoms.append(Atom( (0., 0., 0.), 1.0) )
-atoms.append(Atom( (1.4, 0., 0.0), 1.0) )
+    atoms = list()
+    atoms.append(Atom( (0., 0., 0.), 1.0) )
+    atoms.append(Atom( (1.4, 0., 0.0), 1.0) )
 
-S = compute_overlap(bfs)
-T = compute_T(bfs)
-H =  compute_K(bfs, atoms)
+    S = compute_overlap(bfs)
+    T = compute_T(bfs)
+    H =  compute_K(bfs, atoms)
 
-dim = len(bfs)
-Cinit = np.zeros( (dim, dim) )
-for i in xrange(dim):
-    Cinit[i,i] = 1
-print Cinit
-print S
-print T + H
+    dim = len(bfs)
+    Cinit = np.zeros( (dim, dim) )
+    for i in xrange(dim):
+        Cinit[i,i] = 1
+    print Cinit
+    print S
+    print T + H
 
-print electron_repulsion_CGTO(h3, h1, h1, h1)
+    print electron_repulsion_CGTO(h3, h1, h1, h1)
+
+test()
