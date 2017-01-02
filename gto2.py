@@ -33,6 +33,9 @@ def binomial(n, m):
     # return the nCm
     return factorial(n) / factorial(m) / factorial(n-m)
 
+def adjoint(M):
+    return np.conj( np.transpose(M) )
+
 #============================================================
 # Gaussian Calculation Function
 #============================================================
@@ -165,26 +168,31 @@ def b_term(i1, i2, r1, r2, u, l1, l2, Ax, Bx, Px, gamma1, l3, l4, Cx, Dx, Qx, ga
     QCx = Qx - Cx
     QDx = Qx - Dx
     px  = Qx - Px
-    delta = (0.25*gamma1) + (0.25*gamma2)
+    #delta = (0.25*gamma1) + (0.25*gamma2)
+    delta = 0.25*(1/gamma1+1/gamma2)
     term1 = math.pow(-1, i2) * binomial_prefactor(i1, l1, l2, PAx, PBx) * binomial_prefactor(i2, l3, l4, QCx, QDx)
     term2_numerator  = factorial(i1) * factorial(i2) * math.pow(4*gamma1, r1) * math.pow(4*gamma2, r2) * math.pow(delta, r1+r2)
     term2_denominator= math.pow(4*gamma1, i1) * math.pow(4*gamma2, i2) * math.pow(delta, i1+i2) * factorial(r1) * factorial(r2) * factorial(i1-2*r1) * factorial(i2-2*r2)
+    #term3_numerator = factorial(i1+i2-2*(r1+r2)) * math.pow(-1, u) * math.pow(px, i1+i2-2*(r1+r2)-2*u)*math.pow(delta, u)
     term3_numerator = factorial(i1+i2-2*(r1+r2)) * math.pow(-1, u) * math.pow(px, i1+i2-2*(r1+r2)-2*u)*math.pow(delta, u)
     term3_denominator= factorial(u)*factorial(i1+i2-2*(r1+r2)-2*u)
+    #term3_denominator= factorial(u)*factorial(i1+i2-(r1+r2)-u)
     return term1 * term2_numerator / term2_denominator * term3_numerator / term3_denominator
 
 def b_term_reorder(l1, l2, Ax, Bx, Px, gamma1, l3, l4, Cx, Dx, Qx, gamma2):
     b_term_array = [0.] * (1+l1+l2+l3+l4)
     for i1 in xrange(1+l1+l2):
         for i2 in xrange(1+l3+l4):
-            for r1 in xrange(1 + int(math.floor(i1/2.0))):
-                for r2 in xrange(1 + int(math.floor(i2/2.0))):
-                    for u in xrange(1+int(math.floor((i1+i2)/2.0 - r1-r2))):
+            #for r1 in xrange(1 + int(math.floor(i1/2.0))):
+            for r1 in xrange(1 + i1/2):
+                for r2 in xrange(1 + i2/2):
+                    for u in xrange(1+(i1+i2)/2 - r1-r2):
                         I = i1+i2-2*(r1+r2)-u
                         b_term_array[I] += b_term(i1, i2, r1, r2, u, l1, l2, Ax, Bx, Px, gamma1, l3, l4, Cx, Dx, Qx, gamma2)
     return b_term_array
 
 def electron_repulsion_PGTO(pgto1, pgto2, pgto3, pgto4):
+    #Somehow wrong!
     P = product_PGTO_center(pgto1, pgto2)
     Q = product_PGTO_center(pgto3, pgto4)
     PQ2 = norm2(Q - P)
@@ -202,8 +210,81 @@ def electron_repulsion_PGTO(pgto1, pgto2, pgto3, pgto4):
     for I in xrange(1 + pgto1.l + pgto2.l + pgto3.l + pgto4.l):
         for J in xrange(1 + pgto1.m + pgto2.m + pgto3.m + pgto4.m):
             for K in xrange(1 + pgto1.n + pgto2.n + pgto3.n + pgto4.n):
-                s += b_array_x[I] * b_array_y[J] * b_array_z[K] * boys(I+J+K, PQ2/4/delta)
+                s += b_array_x[I] * b_array_y[J] * b_array_z[K] * boys(I+J+K, 0.25*PQ2/delta)
     return prefactor1 * prefactor2 * s * pgto1.norm * pgto2.norm * pgto3.norm * pgto4.norm
+
+
+def C_table(l1, l2, PAx, PBx, gamma1, l3, l4, QCx, QDx, gamma2, px):
+    C_array = [0.] * (1+l1+l2+l3+l4)
+    for L in xrange(l1+l2+1):
+        for M in xrange(l3+l4+1):
+            for u in xrange(int(math.floor((L+M)/2))+1):
+                I = L+M-u
+                C_array[I] += AuxC(L,M,u,l1,l2,PAx,PBx,gamma1,l3,l4,QCx,QDx,gamma2,px)
+    return C_array
+
+def AuxC(L, M, u, l1, l2, PAx, PBx, gamma1, l3, l4, QCx, QDx, gamma2, px):
+    delta = 0.25*(1/gamma1+1/gamma2)
+    return H(L, l1, l2, PAx, PBx, gamma1) \
+            * math.pow((-1), M) \
+            * H(M, l3, l4, QCx, QDx, gamma2) \
+            * factorial(L+M) * math.pow(-1, u) * math.pow(px, L+M-2*u) / (factorial(u)*factorial(L+M-2*u)*math.pow(delta, L+M-u))
+
+#def electron_repulsion_PGTO(pgto1, pgto2, pgto3, pgto4):
+#    gamma1 = pgto1.exponent + pgto2.exponent
+#    gamma2 = pgto3.exponent + pgto2.exponent
+#    delta = 0.25*(1/gamma1+1/gamma2)
+#    AB2 = norm2(pgto1.center - pgto2.center)
+#    CD2 = norm2(pgto3.center - pgto4.center)
+#    P = product_PGTO_center(pgto1, pgto2)
+#    Q = product_PGTO_center(pgto3, pgto4)
+#    PQ = Q - P
+#    PQ2 = norm2(P-Q)
+#    PA = pgto1.center - P
+#    PB = pgto2.center - P
+#    QC = pgto3.center - Q
+#    QD = pgto4.center - Q
+#    Ctable_x = C_table(pgto1.l, pgto2.l, PA[0], PB[0], gamma1, pgto3.l, pgto4.l, QC[0], QD[0], gamma2, PQ[0])
+#    Ctable_y = C_table(pgto1.l, pgto2.l, PA[1], PB[1], gamma1, pgto3.l, pgto4.l, QC[1], QD[1], gamma2, PQ[1])
+#    Ctable_z = C_table(pgto1.l, pgto2.l, PA[2], PB[2], gamma1, pgto3.l, pgto4.l, QC[2], QD[2], gamma2, PQ[2])
+#    prefactor1= 2 * math.pow(math.pi, 2) / gamma1 / gamma2 * math.sqrt(math.pi / (gamma1 + gamma2))
+#    prefactor2= math.exp(-(pgto1.exponent*pgto2.exponent*AB2/gamma1) - (pgto3.exponent* pgto4.exponent*CD2/gamma2))
+#
+#    s = 0. 
+#    for I in xrange(1 + pgto1.l + pgto2.l + pgto3.l + pgto4.l):
+#        for J in xrange(1 + pgto1.m + pgto2.m + pgto3.m + pgto4.m):
+#            for K in xrange(1 + pgto1.n + pgto2.n + pgto3.n + pgto4.n):
+#                s += Ctable_x[I] * Ctable_y[J] * Ctable_z[K] * boys(I+J+K, 0.25*PQ2/delta)
+#    return prefactor1 * prefactor2 * s * pgto1.norm * pgto2.norm * pgto3.norm * pgto4.norm
+
+
+def H(L, l1, l2, a, b, gamma):
+    l_pair = (l1, l2)
+    if l_pair == (0, 0):
+        if L == 0:
+            return 1.
+        else:
+            raise
+    elif l_pair == (1, 0):
+        if L == 0:
+            return a
+        elif L == 1:
+            return 0.25/gamma
+        else:
+            raise
+    elif l_pair == (1, 1):
+        if L == 0:
+            return a * b + 0.5/gamma
+        elif L == 1:
+            return (a+b)*0.25/gamma
+        elif L == 2:
+            return math.pow((0.25/gamma), 2)
+        else:
+            raise
+    else:
+        raise
+
+    
 
 class primitiveGTO:
     def __init__(self, exponent, (l, m, n), (center_x, center_y, center_z) ):
@@ -315,6 +396,7 @@ def compute_T(bfs):
     return T
 
 def compute_K(bfs, atoms):
+    # Kinetic energy integral
     dim = len(bfs)
     H = np.zeros( (dim, dim) )
     for atom in atoms:
@@ -331,6 +413,7 @@ def build_4center_integral_table(bfs):
     pass
 
 def compute_G(bfs, D):
+    #D is a density matrix
     dim = len(bfs)
     G = np.zeros( (dim, dim) )
     for u in xrange(dim):
@@ -338,12 +421,108 @@ def compute_G(bfs, D):
             temp = 0.
             for p in xrange(dim):
                 for q in xrange(dim):
-                    doubleJ = electron_repulsion_CGTO(bfs[u], bfs[v], bfs[p], bfs[1])
+                    doubleJ = electron_repulsion_CGTO(bfs[u], bfs[v], bfs[p], bfs[q])
                     K = 0.5*electron_repulsion_CGTO(bfs[u], bfs[q], bfs[q], bfs[v])
                     temp += D[p,q] * (doubleJ - K)
             G[u,v] = temp
     return G
+
     
+#============================================================
+# SCF Procedure
+#============================================================
+def symmetric_orthogonalization(S):
+    (l, U) = np.linalg.eig(S)
+    dim = np.shape(S)
+    l_rt = np.zeros( dim )
+    for i in xrange(len(l)):
+        l_rt[i,i] = 1. / math.sqrt(l[i])
+    X = U.dot( l_rt.dot(np.conj(U)) )
+    return X
+
+def canonical_orthogonalization(S):
+    (l, U) = np.linalg.eig(S)
+    dim = np.shape(U)
+    X = np.zeros(dim)
+    for i in xrange(dim[0]):
+        for j in xrange(dim[1]):
+            X[i,j] = U[i,j] / math.sqrt(l[j])
+    return X
+
+def check_SCFconvergence(D, prev_D):
+    shape = np.shape(D)
+    if np.shape(D) != np.shape(prev_D):
+        raise
+    D_diff = D - prev_D
+    rmsdp = 0.
+    maxdp = 0.
+    for i in xrange(shape[0]):
+        for j in xrange(shape[1]):
+            rmsdp += math.pow(D_diff[i,j], 2)
+            dp = math.fabs(D_diff[i,j])
+            if maxdp < dp:
+                maxdp = dp
+    return rmsdp, maxdp
+
+def initial_guess(atoms, bfs):
+    c = np.zeros( (len(bfs), len(bfs)) )
+    for i in xrange(len(bfs)):
+        for j in xrange(len(bfs)):
+            c[i,j] = 1
+    return adjoint(c).dot(c)
+
+def rhf(atoms, bfs):
+    converge_flag = False
+    maxiter = 40
+    T = compute_T(bfs)  # Kinetic Energy
+    V = compute_K(bfs, atoms)   # Nucler attraction
+    Hcore = T + V
+
+    S = compute_overlap(bfs)
+    X = symmetric_orthogonalization(S)
+    X_adj = adjoint(X)
+
+    D = initial_guess(atoms, bfs)
+    NEI = 1/math.pow(1.4, 1)
+
+    for i in xrange(maxiter):
+        G = compute_G(bfs, D)
+        F = Hcore + G
+
+        #C_prim = (np.linalg.inv(X)).dot(C)
+        F_prim = X_adj.dot(F.dot(X))
+        (e, Cnew_prim ) = np.linalg.eig(F_prim)
+        Cnew = X.dot(Cnew_prim)
+        Dnew = adjoint(Cnew).dot(Cnew)
+        (rmsdp, maxdp) = check_SCFconvergence(Dnew, D)
+        
+        tmp = D.dot(Hcore + F)
+        E0 = 0.
+        E0 += sum(sum(D*Hcore))
+        E0 += sum(sum(D*F))
+
+        #shape = np.shape(tmp)
+        #for a in xrange(shape[0]):
+        #    for b in xrange(shape[1]):
+        #        E0 += 0.5 * tmp[a,b]
+        #E0 *= 0.5
+        E0 += NEI
+        print("Cycle {}".format(i))
+        print("\tE = {}".format(E0))
+        print("\trmsdp = {0:.4e}\tmaxdp = {1:.4e}".format(rmsdp, maxdp) )
+
+        nconv = 5
+        convergence = math.pow(10.0, -nconv)
+        if rmsdp < convergence:
+            print "Converged"
+            converge_flag = True
+            break
+        else:
+            D = Dnew
+            C = Cnew
+            # Dumping???
+            # Enter to the next cycle!
+    return converge_flag, Cnew
     
 def test():
     h1 = contractedGTO( (0, 0, 0), (0., 0., 0.) )
@@ -352,7 +531,7 @@ def test():
     h1.add_primitiveGTO(0.154329, 3.42525)
     h1.normalize()
 
-    h3 = contractedGTO( (0, 0, 0), (1.4, 0., 0.) )
+    h3 = contractedGTO( (0, 0, 0), (1.400000, 0., 0.) )
     h3.add_primitiveGTO(0.444635, 0.168856)
     h3.add_primitiveGTO(0.535328, 0.623913)
     h3.add_primitiveGTO(0.154329, 3.42525)
@@ -364,18 +543,12 @@ def test():
     atoms.append(Atom( (0., 0., 0.), 1.0) )
     atoms.append(Atom( (1.4, 0., 0.0), 1.0) )
 
-    S = compute_overlap(bfs)
-    T = compute_T(bfs)
-    H =  compute_K(bfs, atoms)
+    success, C = rhf(atoms, bfs)
+    #print "C"
+    #print C
 
-    dim = len(bfs)
-    Cinit = np.zeros( (dim, dim) )
-    for i in xrange(dim):
-        Cinit[i,i] = 1
-    print Cinit
-    print S
-    print T + H
+    print "Electron Repulsion Integral"
+    #print electron_repulsion_CGTO(h1, h1, h3, h3)
+    print electron_repulsion_CGTO(h1, h1, h3, h3)
 
-    print electron_repulsion_CGTO(h3, h1, h1, h1)
-
-test()
+#test()
